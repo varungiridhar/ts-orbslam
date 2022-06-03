@@ -1,0 +1,95 @@
+<launch>
+  <param name="use_sim_time" value="true"/>
+  <arg name="new_bagfile" default="none"/>
+
+	<arg name="bagfile" default="/home/earthsense/Documents/to_label/2021-08-13-cc94/collection-130821_152240/ros/ts_2021_08_13_20h22m35s.bag"/>
+	<arg name="add_args" value="--clock -d 5 -s 0 -r 1" />	
+	<arg name="topics_to_play" value="--topics /terrasentia/front_cam_node/image_rect_color/compressed /terrasentia/front_cam_node/image_raw/compressed /terrasentia/back_cam_node/image_rect_color/compressed /terrasentia/back_cam_node/image_raw/compressed /terrasentia/top_cam_node/image_raw/compressed"/>
+
+	<node pkg="rosbag" type="play" name="player" args="$(arg bagfile) $(arg add_args) $(arg topics_to_play)" required="true" output="screen"/>
+
+  <!-- Republish to raw format since rosbags only have CompressedImage -->
+  <node pkg="image_transport" type="republish" name="republish_front" args="compressed in:=/terrasentia/front_cam_node/image_raw raw out:=/terrasentia/front_cam_node/image_raw_no_info" required="true" output="screen"/>
+  <node pkg="image_transport" type="republish" name="republish_back" args="compressed in:=/terrasentia/back_cam_node/image_raw raw out:=/terrasentia/back_cam_node/image_raw_no_info" required="true" output="screen"/>
+  <node pkg="image_transport" type="republish" name="republish_top" args="compressed in:=/terrasentia/top_cam_node/image_raw raw out:=/terrasentia/top_cam_node/image_raw_no_info" required="true" output="screen"/>
+
+  <!-- Republish Image with correct calibration -->
+  <node pkg="projection_data" type="camera_info_publisher.py" name="front_camera_info_pub">
+    <param name="input_topic" value="/terrasentia/front_cam_node/image_raw_no_info"/>
+    <param name="output_topic" value="/terrasentia/front_cam_node/image_raw"/>
+    <param name="output_camera_info_topic" value="/terrasentia/front_cam_node/camera_info"/>
+    <param name="calibration_path" value="$(find terrasentia_ag_nav)/configs/camera/camera_calibration.yaml"/>
+  </node>
+  <node pkg="projection_data" type="camera_info_publisher.py" name="back_camera_info_pub">
+    <param name="input_topic" value="/terrasentia/back_cam_node/image_raw_no_info"/>
+    <param name="output_topic" value="/terrasentia/back_cam_node/image_raw"/>
+    <param name="output_camera_info_topic" value="/terrasentia/back_cam_node/camera_info"/>
+    <param name="calibration_path" value="$(find terrasentia_ag_nav)/configs/camera/camera_calibration.yaml"/>
+  </node>
+  <node pkg="projection_data" type="camera_info_publisher.py" name="top_camera_info_pub">
+    <param name="input_topic" value="/terrasentia/top_cam_node/image_raw_no_info"/>
+    <param name="output_topic" value="/terrasentia/top_cam_node/image_raw"/>
+    <param name="output_camera_info_topic" value="/terrasentia/top_cam_node/camera_info"/>
+    <param name="calibration_path" value="$(find terrasentia_ag_nav)/configs/camera/camera_calibration.yaml"/>
+  </node>
+
+  <!-- Run image_proc -->
+	<node pkg="image_proc" type="image_proc" name="front_image_proc" ns="/terrasentia/front_cam_node">
+		<remap from="image_raw" to="/terrasentia/front_cam_node/image_raw"/>
+		<remap from="image_rect_color" to="/terrasentia/front_cam_node/image_rect_color"/>
+		<remap from="camera_info" to="/terrasentia/front_cam_node/camera_info"/>
+	</node>
+	<node pkg="image_proc" type="image_proc" name="back_image_proc" ns="/terrasentia/back_cam_node">
+		<remap from="image_raw" to="/terrasentia/back_cam_node/image_raw"/>
+		<remap from="image_rect_color" to="/terrasentia/back_cam_node/image_rect_color"/>
+		<remap from="camera_info" to="/terrasentia/back_cam_node/camera_info"/>
+	</node>
+	<node pkg="image_proc" type="image_proc" name="top_image_proc" ns="/terrasentia/top_cam_node">
+		<remap from="image_raw" to="/terrasentia/top_cam_node/image_raw"/>
+		<remap from="image_rect_color" to="/terrasentia/top_cam_node/image_rect_color"/>
+		<remap from="camera_info" to="/terrasentia/top_cam_node/camera_info"/>
+	</node>
+
+  <!-- Flip image_rect -->
+  <node name="flip_cam" pkg="flip_cam" type="flip_cam.py" output="screen">
+      <param name="cam_input" type="string" value="/terrasentia/front_cam_node/image_rect_color/compressed" />
+      <param name="cam_output" type="string" value="/terrasentia/front_cam_node/rotated/compressed" />
+  </node>
+  <node name="flip_cam_back" pkg="flip_cam" type="flip_cam.py" output="screen">
+      <param name="cam_input" type="string" value="/terrasentia/back_cam_node/image_rect_color/compressed" />
+      <param name="cam_output" type="string" value="/terrasentia/back_cam_node/rotated/compressed" />
+  </node>
+  <node name="flip_cam_top" pkg="flip_cam" type="flip_cam.py" output="screen">
+      <param name="cam_input" type="string" value="/terrasentia/top_cam_node/image_rect_color/compressed" />
+      <param name="cam_output" type="string" value="/terrasentia/top_cam_node/rotated/compressed" />
+  </node>
+
+  <!-- Record final images-->
+  <node pkg="rosbag" type="record" name="rosbag_ts" args="record -O $(arg new_bagfile) /terrasentia/front_cam_node/rotated/compressed /terrasentia/back_cam_node/rotated/compressed /terrasentia/top_cam_node/rotated/compressed /terrasentia/front_cam_node/camera_info /terrasentia/back_cam_node/camera_info /terrasentia/top_cam_node/camera_info" output="screen"/>
+  
+  <!-- Open Rviz to check camera feed-->
+	<node type="rviz" name="rviz" pkg="rviz" args="-d $(find terrasentia_ag_nav)/rviz/check_cams.rviz" />
+</launch>
+
+
+<!-- Bash to run roslaunch for all rosbags passed as arg
+#/bin/bash
+
+walk_dir () {
+    for pathname in "$1"/*; do
+        if [ -d "$pathname" ]; then
+            walk_dir "$pathname"
+        else
+          case "$pathname" in *.bag)
+            echo $pathname | grep -q "essentials"
+            if [ $? -eq 1 ]; then
+              printf '%s\n' "$pathname"
+              roslaunch flip_cam load_rect_flip.launch bagfile:=$pathname new_bagfile:="${pathname%.bag}-final-cam.bag"
+            fi
+          esac
+        fi
+    done
+}
+
+walk_dir $1
+-->

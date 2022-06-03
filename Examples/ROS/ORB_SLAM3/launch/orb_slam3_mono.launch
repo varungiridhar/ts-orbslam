@@ -1,0 +1,40 @@
+<launch>
+
+    <arg name="slam_mode" /> 
+    <arg name="camera_input" />
+
+    <group if="$(eval arg('slam_mode') == 'Mono')">
+        <node pkg="ORB_SLAM3" type="Mono" name="mono" args="/ORB_SLAM3/Vocabulary/ORBvoc.txt /ORB_SLAM3/Examples/Monocular/TS.yaml" />
+        <node pkg="image_transport" type="republish" name="rgb_front_compress" args="compressed in:=/terrasentia/$(arg camera_input)/rotated raw out:=/camera/image_raw" 
+            if="$(eval arg('camera_input') == 'front_cam_node')"/>
+     
+        <node pkg="image_transport" type="republish" name="rgb_rear_compress" args="compressed in:=/terrasentia/$(arg camera_input)/image_raw raw out:=/camera/image_raw" 
+            if="$(eval arg('camera_input') == 'rear_cam_node')"/>
+    </group>
+         
+    <group if="$(eval arg('slam_mode') == 'Mono_Inertial')">
+        <node pkg="ORB_SLAM3" type="Mono_Inertial" name="mono_inertial" args="/ORB_SLAM3/Vocabulary/ORBvoc.txt /ORB_SLAM3/Examples/Monocular-Inertial/TS.yaml" />    
+        
+        <node pkg="image_transport" type="republish" name="rgb_front_compress" args="compressed in:=/terrasentia/$(arg camera_input)/rotated raw out:=/camera/image_raw" 
+            if="$(eval arg('camera_input') == 'front_cam_node')"/>
+            
+        <node pkg="image_transport" type="republish" name="rgb_rear_compress" args="compressed in:=/terrasentia/$(arg camera_input)/image_raw raw out:=/camera/image_raw" 
+            if="$(eval arg('camera_input') == 'rear_cam_node')"/>
+    
+    </group>
+    
+    <group if="$(eval arg('slam_mode') == 'Stereo')">        
+        <node pkg="ORB_SLAM3" type="Stereo" name="stereo" args="/ORB_SLAM3/Vocabulary/ORBvoc.txt /ORB_SLAM3/Examples/Stereo/EuRoC.yaml true" />
+                
+        <node pkg="image_transport" type="republish" name="rgb_rear_compress" args="compressed in:=/terrasentia/rear_cam_node/image_raw raw out:=/camera/left/image_raw" />
+         
+        <node pkg="image_transport" type="republish" name="rgb_front_compress" args="compressed in:=/terrasentia/front_cam_node/rotated raw out:=/camera/right/image_raw" />
+    </group>
+    
+    <group if="$(eval arg('slam_mode') == 'Stereo_Inertial')">
+    </group>
+    
+     
+ 
+  
+</launch>

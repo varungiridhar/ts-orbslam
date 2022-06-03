@@ -1,0 +1,7 @@
+<launch>
+
+    <node pkg="ORB_SLAM3" type="Odom_To_Pose" name="odom_to_pose"/>
+ 
+    <node pkg="ORB_SLAM3" type="Evaluate_SLAM", name="evaluate_slam" />
+
+</launch>

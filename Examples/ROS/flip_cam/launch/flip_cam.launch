@@ -1,0 +1,8 @@
+<launch>
+	
+    <arg name="camera_input" />
+    <node name="flip_cam" pkg="flip_cam" type="flip_cam.py">
+		<param name="cam_output" type="string" value="/terrasentia/$(arg camera_input)/rotated/compressed" />
+		<param name="cam_input" type="string" value="/terrasentia/$(arg camera_input)/image_raw/compressed" />
+	</node>
+</launch>
